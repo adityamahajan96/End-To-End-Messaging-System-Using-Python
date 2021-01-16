@@ -4,11 +4,11 @@
 - **CLIENT**: python client.py <SAME_IP_AS_ABOVE> <SAME_PORT_AS_ABOVE>
   
 # Commands:
-- SIGNUP <username> <password>
-- LOGIN <username> <password>
+- SIGNUP (username) (password)
+- LOGIN (username) (password)
 - LOGOUT
-- CREATE <group_name>
-- JOIN <group_name>
+- CREATE (group_name)
+- JOIN (group_name)
 - LIST
-- SEND <username> <message>
-- SEND <message>            (for Group Broadcasting)
+- SEND (username) (message)
+- SEND (message)            (for Group Broadcasting)
