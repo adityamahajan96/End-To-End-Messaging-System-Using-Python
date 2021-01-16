@@ -11,4 +11,4 @@
 - JOIN (group_name)
 - LIST
 - SEND (username) (message)
-- SEND (message) *for Group Broadcasting*
+- SEND (message)            *<<for Group Broadcasting>>*
