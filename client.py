@@ -9,9 +9,9 @@ if len(sys.argv) != 3:
 IP_address = str(sys.argv[1]) 
 Port = int(sys.argv[2]) 
 server.connect((IP_address, Port)) 
-
+print("CONNECTED.....")
 message = server.recv(2048)
-print(message)
+print(message.decode('utf-8'))
 
 #signup = 0
 #login = 0
@@ -57,16 +57,17 @@ while True:
 		if socks == server:
 			message = socks.recv(2048)
 			#DECRYPT
-			print(message)
+			print(message.decode('utf-8'))
 		else:
 			msg = sys.stdin.readline()
 			msg_split = msg.split(' ')
+
 			#print('msg_split: ', msg_split)
 			if msg_split[0] == 'LOGIN':
 				#if login == 1:
 				#	print('Already LOGGED IN with User: <' + username + '>. Please LOGOUT to continue...')
 				#	continue
-				server.send(msg)
+				server.send(bytes(msg, 'utf-8'))
 				flag = server.recv(2048)
 				if flag == '0':
 					print('LOGIN FAILED.. Please try again !!')
@@ -78,17 +79,17 @@ while True:
 					#login = 1
 			
 			elif msg_split[0] == 'LOGOUT\n':
-				server.send(msg)
+				server.send(bytes(msg, 'utf-8'))
 				flag_msg = server.recv(2048)
-				if flag_msg != 0:
-					print(flag_msg)
+				if flag_msg.decode('utf-8') != '0':
+					print(flag_msg.decode('utf-8'))
 				else:
 					print('Some LOGOUT Error !! Please try again...')
 				
 			elif msg_split[0] == 'SIGNUP': 
-				server.send(msg)
+				server.send(bytes(msg, 'utf-8'))
 				flag = server.recv(2048)
-				if flag == '1':
+				if flag.decode('utf-8') == '1':
 					print('SIGNUP Successful !! Please login to continue...')
 					#signup = 1
 				else:
@@ -96,32 +97,32 @@ while True:
 				continue
 			
 			elif msg_split[0] == 'CREATE':
-				server.send(msg)
+				server.send(bytes(msg, 'utf-8'))
 				flag = server.recv(2048)
-				if flag == '0':
+				if flag.decode('utf-8') == '0':
 					print('FAILURE in GROUP CREATION !!')
 				else:
-					print(flag)
+					print(flag.decode('utf-8'))
 
 			elif msg_split[0] == 'LIST\n':
-				server.send(msg)
+				server.send(bytes(msg, 'utf-8'))
 				flag = server.recv(2048)
-				if flag == '0':
+				if flag.decode('utf-8') == '0':
 					print('GROUP_LIST Error !!')
 				else:
-					print(flag)
+					print(flag.decode('utf-8'))
 
 			elif msg_split[0] == 'JOIN':
-				server.send(msg)
+				server.send(bytes(msg, 'utf-8'))
 				flag = server.recv(2048)
-				if flag == '0':
+				if flag.decode('utf-8') == '0':
 					print('JOIN_GROUP Error !!')
 				else:
-					print(flag)
+					print(flag.decode('utf-8'))
 
 			elif msg_split[0] == 'SEND':
 				#ENCRYPT
-				server.send(msg) 
+				server.send(bytes(msg, 'utf-8')) 
 			 	
 				#sys.stdout.write("<You>") 
 				#sys.stdout.write(msg) 
