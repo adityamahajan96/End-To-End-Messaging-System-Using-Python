@@ -69,8 +69,14 @@ while True:
 				#	continue
 				server.send(bytes(msg, 'utf-8'))
 				flag = server.recv(2048)
-				if flag == '0':
+				if flag.decode('utf-8') == '0':
 					print('LOGIN FAILED.. Please try again !!')
+					continue
+				elif flag.decode('utf-8') == '2':
+					print('Invalid password. Please try again')
+					continue
+				elif flag.decode('utf-8') == '3':
+					print('User already logged in!')
 					continue
 				else:
 					print('LOGIN Successful !!')

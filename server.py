@@ -95,6 +95,17 @@ def clientthread(conn, addr):
 						fl = 1
 						conn.send(bytes('1', 'utf-8'))
 						break
+						
+					elif msg_split[1] == usr.username and msg_split[2] != usr.password:
+						fl = 1
+						conn.send(bytes('2', 'utf-8'))
+						break
+						
+					elif usr.login == 1:
+						fl = 1
+						conn.send(bytes('3', 'utf-8'))
+						break
+						
 				if fl == 0:
 					conn.send(bytes('0', 'utf-8'))
 					continue
