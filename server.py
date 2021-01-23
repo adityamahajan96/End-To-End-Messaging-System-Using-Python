@@ -1,17 +1,20 @@
 import socket 
 import select 
 import sys 
-import threading
+from _thread import *
+import tqdm
+import os
+from time import *
 
 class users:
-	def __init__(self, ip, port, username, password, conn, login):
+	def __init__(self, ip, port, username, password, conn, login, x):
 		self.ip = ip
 		self.port = port
 		self.username = username
 		self.password = password
 		self.conn = conn
 		self.login = login
-		self.groups = []
+		self.x = x
 
 class groups:
 	def __init__(self, group_name, owner):
@@ -22,6 +25,9 @@ class groups:
 
 user_list = []
 group_list = []
+
+BUFFER = 4096
+SEPARATOR = '<FALTU>'
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) 
@@ -49,12 +55,6 @@ def msg_combine(conn, msg_split):
 		msg += msg_split[m] + ' '
 	return msg
 
-def msg_combine2(conn, msg_split):
-	msg = '<' + conn_to_user(conn) + '>: '
-	for m in range(1, len(msg_split)):
-		msg += msg_split[m] + ' '
-	return msg
-
 def grp_msg_combine(conn, msg_split, grp):
 	msg = '<' + grp + '><' + conn_to_user(conn) + '>: '
 	for m in range(2, len(msg_split)):
@@ -62,15 +62,11 @@ def grp_msg_combine(conn, msg_split, grp):
 	return msg
 
 def clientthread(conn, addr): 
-	conn.send(bytes("## Welcome to Terminal-Whatsapp ##", 'utf-8'))
+	conn.send(b"## Welcome to Terminal-Whatsapp ##")
 	while True: 
-		#try: 	
-			message = conn.recv(2048)
-
-			#print(message.decode('utf-8'))
-
-			msg_split = message.decode('utf-8').split(' ')
-
+		#try: 
+			message = conn.recv(2048).decode()
+			msg_split = message.split('<SEPARATOR>')
 			if msg_split[0] == 'SIGNUP':
 				fl = 0
 				for usr in user_list:
@@ -78,12 +74,17 @@ def clientthread(conn, addr):
 						fl = 1 
 						break
 				if fl == 0:
-					u = users(addr[0], addr[1], msg_split[1], msg_split[2], conn, 0)
+					u = users(addr[0], addr[1], msg_split[1], msg_split[2], conn, 0, 0)
 					user_list.append(u)
-					conn.send(bytes('1', 'utf-8'))
+					conn.send(b'1')
 					continue
 				else:
-					conn.send(bytes('0', 'utf-8'))
+					conn.send(b'0')
+
+			if msg_split[0] == 'X':
+				for u in user_list:
+					if u.conn == conn and u.login == 1:
+						u.x = int(msg_split[1])
 
 			if msg_split[0] == 'LOGIN':
 				fl = 0
@@ -91,23 +92,13 @@ def clientthread(conn, addr):
 					if msg_split[1] == usr.username and msg_split[2] == usr.password and usr.login == 0:
 						usr.login = 1
 						usr.conn = conn
+						#usr.x = int(msg_split[3])
 						print("User: <" + usr.username + "> Logged in !!")
 						fl = 1
-						conn.send(bytes('1', 'utf-8'))
+						conn.send(b'1')
 						break
-						
-					elif msg_split[1] == usr.username and msg_split[2] != usr.password:
-						fl = 1
-						conn.send(bytes('2', 'utf-8'))
-						break
-						
-					elif usr.login == 1:
-						fl = 1
-						conn.send(bytes('3', 'utf-8'))
-						break
-						
 				if fl == 0:
-					conn.send(bytes('0', 'utf-8'))
+					conn.send(b'0')
 					continue
 
 			if msg_split[0] == 'LOGOUT\n':
@@ -124,14 +115,14 @@ def clientthread(conn, addr):
 					continue
 				else:
 					print('<' + usr.username + '> LOGOUT ERROR...')
-					conn.send(bytes('0', 'utf-8'))
+					conn.send(b'0')
 
 			if msg_split[0] == 'CREATE':
 				fl = 0
 				for g in group_list:
 					if g.group_name == msg_split[1]:
 						fl = 1
-						conn.send(bytes('0', 'utf-8'))
+						conn.send(b'0')
 						break
 				if fl == 0:
 					fl2 = 0
@@ -140,12 +131,11 @@ def clientthread(conn, addr):
 							gr = groups(msg_split[1], usr.username)
 							gr.group_members.append(usr.username)
 							group_list.append(gr)
-							usr.groups.append(msg_split[1][:-1])
 							conn.send(bytes('Group <' + msg_split[1][:-1] + '> CREATED Successfully !!', 'utf-8'))
 							fl2 = 1
 							break
 					if fl2 == 0:
-						conn.send(bytes('0', 'utf-8'))
+						conn.send(b'0')
 
 			if msg_split[0] == 'LIST\n':			
 				fl = 0
@@ -154,7 +144,7 @@ def clientthread(conn, addr):
 						fl = 1
 						break
 				if fl == 0:
-					conn.send(bytes('0', 'utf-8'))
+					conn.send(b'0')
 					continue
 				else:
 					msg = 'GROUP_NAME\tOWNER\tMEMBERS\tMEMBER_COUNT\n'
@@ -172,7 +162,7 @@ def clientthread(conn, addr):
 						fl = 1
 						break
 				if fl == 0:
-					conn.send(bytes('0', 'utf-8'))
+					conn.send(b'0')
 					continue
 				else:
 					fl2 = 0
@@ -182,138 +172,134 @@ def clientthread(conn, addr):
 							usr = ''
 							for u2 in user_list:
 								if u2.conn == conn:
-									u2.groups.append(g.group_name[:-1])
 									usr = u2.username
 									break
-							g.group_members.append(usr)
-							g.mem_count += 1
-
-							conn.send(bytes('You joined the group <' + g.group_name[:-1] + '> Successfully !!', 'utf-8'))
+							if usr not in g.group_members:
+								g.group_members.append(usr)
+								g.mem_count += 1
+								conn.send(bytes('You joined the group <' + g.group_name[:-1] + '> Successfully !!', 'utf-8'))
+							else:
+								conn.send(bytes('You CANNOT JOIN the group <' + g.group_name[:-1] + '> again..', 'utf-8'))
 							break
 					if fl2 == 0:
-						conn.send(bytes('0', 'utf-8'))
+						conn.send(b'0')
+
+			if msg_split[0] == 'CHECK':
+				flag = b'NO<SEPARATOR>faltu'
+				fl = 0
+				#print('CHECK ' + msg_split[1])
+				for u in user_list:
+					if u.username == msg_split[1] and u.login == 1:
+						flag = bytes('YES<SEPARATOR>' + str(u.x) + '<SEPARATOR>faltu', 'utf-8') 
+						fl = 1
+						break
+				if fl == 0:
+					grp_name = msg_split[1] + '\n'
+					for g in group_list:
+						if g.group_name == grp_name and msg_split[2] in g.group_members:
+							str_x = ''
+							str_uname = ''
+							for u4 in user_list:
+								if u4.conn != conn and u4.login == 1 and u4.username in g.group_members:
+									str_x += str(u4.x) + '<SEP>'
+									str_uname += str(u4.username) + '<SEP>'
+							str_x = str_x + '0'
+							str_uname = str_uname + 'faltu'
+							#print('str_x:', str_x)
+							#print('str_uname:', str_uname)
+							flag = bytes('YES_GROUP<SEPARATOR>' + str_x + '<SEPARATOR>' + str_uname + '<SEPARATOR>' + grp_name + '<SEPARATOR>faltu', 'utf-8') 
+							break
+				conn.send(flag)
+
+			if msg_split[0] == 'DIFFIE':
+				flag = 0
+				for u in user_list:
+					if u.username == msg_split[2]:
+						print('Server received x.. sending:', msg_split[1])
+						u.conn.send(bytes('KEY ' + msg_split[1] + ' faltu', 'utf-8'))
+						ack = u.conn.recv(2048)
+						print('Server received y.. sending:', ack)
+						conn.send(ack)
+						flag = 1
+						break
 
 			if msg_split[0] == 'SEND':
-				fl3 = 0
-				for u in user_list:
-					if u.conn == conn and u.login == 1:
-						print ("<" + u.username + ">: " + message.decode('utf-8'))
-						"""fl2 = 0
-						for usr in user_list:
-							if msg_split[1] == usr.username and usr.login == 1:
-								main_message = msg_combine(conn, msg_split)
-								usr.conn.send(main_message)
-								fl2 = 1
-								break
-						if fl2 == 0:
-							fl4 = 0
-							for g in group_list:
-								if msg_split[1] == g.group_name[:-1]:
-									demo_u = ''
-									for u4 in user_list:
-										if u4.conn == conn:
-											demo_u = u4.username
-											break
-									fl4 = 1
-									group_conn_list = []
-									fl7 = 0
-									if demo_u in g.group_members:
-										for u3 in user_list:
-											if u3.username in g.group_members:
-												group_conn_list.append(u3.conn)
-									else:
-										fl7 = 1
-										break
-									multicast(grp_msg_combine(conn, msg_split, g.group_name[:-1]), conn, group_conn_list)
-									break
-							if fl4 == 0 and fl7 == 0:
-								conn.send('FAILURE in sending Group Message !!')
-							elif fl7 == 1:
-								conn.send('MESSAGE NOT SENT !! You are NOT a member of <' + g.group_name[:-1] + '>')"""
-										
-							#main_message = msg_combine(conn, msg_split)
-							#broadcast(main_message, conn)
-						fl2 = 0
-						for usr in user_list:
-							if msg_split[1] == usr.username and usr.login == 1:
-								fl2 = 1
-								if msg_split[2] == 'FILE':
-									pass
-								else:
-									main_message = msg_combine(conn, msg_split)
-									usr.conn.send(bytes(main_message, 'utf-8'))
-								break
-						if fl2 == 0:
-							usr_list = []
-							fl8 = 0
+				usr_or_grp = msg_split[1]
+				conn.send(b'ACK')
+				msg_type = conn.recv(2048).decode()
+				conn.send(b'ACK')
+			
+				if msg_type == 'FILE':
+					received = conn.recv(BUFFER).decode()
+					filename, filesize = received.split(SEPARATOR)
+
+					for u in user_list:
+						if u.conn == conn and u.login == 1:
+							tmp5 = 0
 							for usr in user_list:
-								if usr.conn == conn:
-									fl8 = 1
-									for gm in usr.groups:
-										for gt in group_list:
-											if gt.group_name[:-1] == gm:
-												for i in gt.group_members:
-													usr_list.append(i)
-									break			
-							final_conn_list = []
-							for u4 in user_list:
-								for u5 in usr_list:
-									if u4.username == u5:
-										final_conn_list.append(u4.conn)
-										break
-							conn_tuple = tuple(final_conn_list)
-							multicast(msg_combine2(conn, msg_split), conn, conn_tuple)
-						fl3 = 1
-						break
-				if fl3 == 0:
-					conn.send(bytes('Please SIGNUP/LOGIN to SEND messages...', 'utf-8'))
+								if usr.username == usr_or_grp and usr != u:
+									usr.conn.send(b'SEND_FILE')
+									ackn = usr.conn.recv(2048).decode()
+
+									filename = os.path.basename(filename)
+									filesize = int(filesize)
+									
+									tmp_var = 0
+									with open(filename, "wb") as f:
+										while True:
+											bytes_read = conn.recv(BUFFER)
+											if not bytes_read:    
+												break
+											f.write(bytes_read)
+											tmp_var += 1
+									if tmp_var == 0:
+										print('Unable to download !!')
+									else:
+										print('DOWNLOADED SUCCESSFULLY !!')
+
+									tmp5 = 1
+									break
+							if tmp5 == 0:
+								pass
+					continue
+
+				elif msg_type == 'MSG':
+					flag1 = 0
+					for u in user_list:
+						if u.conn == conn and u.login == 1:
+							flag2 = 0
+							for usr in user_list:
+								if usr.username == usr_or_grp and usr != u:
+									
+									m = bytearray(conn.recv(2048))
+									m.extend(b'<SEPARATOR>')
+									m.extend(bytes(u.username, 'utf-8'))
+									m.extend(b'<SEPARATOR>')
+									m.extend(bytes(str(u.x) + '<SEPARATOR>faltu', 'utf-8'))
+									usr.conn.send(m)
+									flag2 = 1
+									break
+							flag1 = 1
+							break
+					if flag1 == 0:
+						conn.send(b'LOGIN_ERROR')
+						continue
 
 def multicast(msg, conn, group_conn_list):
 	#print('Inside MULTICAST !!')
 	for mem_conn in group_conn_list: 
 		if mem_conn != conn: 
-			try: 
-				mem_conn.send(bytes(msg,'utf-8')) 
-			except: 
-				print('MULTICAST error !!')
-				mem_conn.close() 
-				remove(mem_conn) 
-
-def multicast2(msg, conn, group_conn_tuple):
-	#print('Inside MULTICAST !!')
-	for mem_conn in group_conn_tuple: 
-		if mem_conn != conn: 
-			try: 
-				mem_conn.send(bytes(msg,'utf-8')) 
-			except: 
-				print('MULTICAST error !!')
-				mem_conn.close() 
-				remove(mem_conn) 
-
-def broadcast(message, connection): 
-	#print('Inside broadcast !!')
-	for clients in list_of_clients: 
-		if clients!=connection: 
-			try: 
-				clients.send(bytes(message,'utf-8')) 
-			except: 
-				print('broadcast error !!')
-				clients.close() 
-				remove(clients) 
-
+			mem_conn.send(msg)
+			
 def remove(connection): 
 	if connection in list_of_clients: 
 		list_of_clients.remove(connection) 
 
-#client_no = 0
 while True: 
-	#client_no += 1
 	conn, addr = server.accept() 
 	list_of_clients.append(conn) 
 	print ("<" + addr[0] + "><" + str(addr[1]) + "> connected") 
-	cThread = threading.Thread(target = clientthread, args = (conn, addr))
-	cThread.daemon = True
-	cThread.start()
+	start_new_thread(clientthread,(conn, addr)) 
 
 conn.close() 
 server.close() 
