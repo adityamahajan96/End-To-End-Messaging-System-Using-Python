@@ -1,7 +1,9 @@
 # End-To-End-Messaging-System-Using-Python
-
-- **SERVER**: python server.py 127.0.0.1 <ANY_FREE_PORT>
-- **CLIENT**: python client.py <SAME_IP_AS_ABOVE> <SAME_PORT_AS_ABOVE>
+- Python3 compatible now.
+- End-to-end encryption using 3DES and Diffie-Hellman Key exchange has been implemented for text messages.
+- *FILE SHARING part is still pending*
+- **SERVER**: python3 server.py 127.0.0.1 <ANY_FREE_PORT>
+- **CLIENT**: python3 client.py <SAME_IP_AS_ABOVE> <SAME_PORT_AS_ABOVE>
   
 # Commands:
 - SIGNUP (username) (password)
@@ -11,4 +13,5 @@
 - JOIN (group_name)
 - LIST
 - SEND (username) (message)
-- SEND (message)            *//for Group Broadcasting*
+- SEND (group_name) (message)            *//for Group Broadcasting*
+- EXIT
