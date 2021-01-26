@@ -13,5 +13,5 @@
 - SEND (username/group_name) (message)
 - SEND (username/group_name) FILE (relative FILEPATH) 
 
-# NOTE: 
+## NOTE: 
 Relative filepath is the home directory (including filename) from where client.py is executed. So, for example, if *client.py* is executed from **TMP** and  if some image *pic.jpg* is present in its child directory **TMP/images**, then the command will be: **SEND (username/group_name) FILE images/pic.jpg**
