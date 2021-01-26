@@ -229,17 +229,42 @@ def clientthread(conn, addr):
 				conn.send(b'ACK')
 				msg_type = conn.recv(2048).decode()
 				conn.send(b'ACK')
-			
-				if msg_type == 'FILE':
-					received = conn.recv(BUFFER).decode()
-					filename, filesize = received.split(SEPARATOR)
 
+				msg_file = msg_type.split('<SEP>')
+				
+				if msg_type == 'NO_FILE':
+					continue			
+				elif msg_file[0] == 'FILE':
+					#received = conn.recv(BUFFER).decode()
+					#filename, filesize = received.split(SEPARATOR)
+					#print('filename:', msg_file[1])
 					for u in user_list:
 						if u.conn == conn and u.login == 1:
 							tmp5 = 0
 							for usr in user_list:
 								if usr.username == usr_or_grp and usr != u:
-									usr.conn.send(b'SEND_FILE')
+									itr = int(conn.recv(2048).decode())
+									conn.send(b'ACK')
+									#print('itr:', itr)
+									#sleep(0.5)
+									#usr.conn.send(b'FILE')
+									#conn.send(b'ACK')
+									#f = usr.conn.recv(2048).decode()
+									#print('filename:', msg_file[1])
+									#usr.conn.send(bytes(msg_file[1], 'utf-8'))
+									#f = usr.conn.recv(2048).decode()
+									usr.conn.send(bytes('FILE<SEPARATOR>' + msg_file[1] + '<SEPARATOR>' + str(itr) + '<SEPARATOR>faltu_again', 'utf-8'))
+									#f = usr.conn.recv(2048).decode()
+									sleep(0.2)
+									#for i in range(0, itr):
+									for i in range(0, itr):
+										bytes_read = conn.recv(BUFFER)
+										#print('INSIDE loop')
+										usr.conn.sendall(bytes_read)
+										
+									#if itr > 0:
+									#	conn.send(b'ACK')
+									'''usr.conn.send(b'SEND_FILE')
 									ackn = usr.conn.recv(2048).decode()
 
 									filename = os.path.basename(filename)
@@ -256,7 +281,7 @@ def clientthread(conn, addr):
 									if tmp_var == 0:
 										print('Unable to download !!')
 									else:
-										print('DOWNLOADED SUCCESSFULLY !!')
+										print('DOWNLOADED SUCCESSFULLY !!')'''
 
 									tmp5 = 1
 									break
@@ -271,12 +296,13 @@ def clientthread(conn, addr):
 							flag2 = 0
 							for usr in user_list:
 								if usr.username == usr_or_grp and usr != u and usr.login == 1:
-									
+									#conn.send(b'ACK')
 									m = bytearray(conn.recv(2048))
 									m.extend(b'<SEPARATOR>')
 									m.extend(bytes(u.username, 'utf-8'))
 									m.extend(b'<SEPARATOR>')
 									m.extend(bytes(str(u.x) + '<SEPARATOR>faltu', 'utf-8'))
+									#print('m:', m)
 									usr.conn.send(m)
 									flag2 = 1
 									break
