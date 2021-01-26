@@ -13,8 +13,11 @@ def pad(text):
     while len(text) % 8 != 0:
         text += ' '
     return text
+def pad_file_chunk(file_chunk):
+    while len(file_chunk) % 8 != 0:
+        file_chunk.extend(b'9')
+    return file_chunk
 
-key = b'Sixteen_byte_key'
 G = 9
 P = 23
 a = 0
@@ -33,6 +36,7 @@ print(message)
 
 SEPARATOR = "<FALTU>"
 BUFFER = 4096
+BUFFER2 = 4096 + 2048
 
 username = ''
 
@@ -57,15 +61,45 @@ while True:
 				#print('itr:', itr)
 				filename = os.path.basename(filename)
 				tmp = 0
+				print('Receiving.', end = '')
 				with open(filename, "wb") as f:
 					for i in range(0, itr):
 						#print('INSIDE loop1')
-						bytes_read = server.recv(BUFFER)
-						f.write(bytes_read)
+						#iv, encrypted_chunk, username, x
+						by = server.recv(BUFFER2)
+						by_split = by.split(b'<SEPARATOR>')
+
+						#print(by)
+						#print('iv:', by_split[1])
+						#print('enc_chunk:', by_split[1])
+						#print('username:', by_split[3])
+						#print('y:', by_split[4])
+
+						y = int(str(by_split[4])[2:-1])
+						key2 = int(pow(y, a, P))
+						if key2 == 1:
+							key2 += 5
+						#print('key2:', key2)
+
+						temp = []
+						for i in range(16):
+							b = (key2 >> (i * 8)) & 0xFF
+							temp.append(b)
+						#print('temp:', temp)
+
+						temp2 = [chr(b) for b in temp]
+						
+						key2_main = bytearray(b'')
+						for i in temp2:
+							key2_main.extend(bytes(i, 'utf-8'))
+
+						cipher_decrypt2 = DES3.new(bytes(key2_main), DES3.MODE_OFB, by_split[1])
+						decrypted_chunk = cipher_decrypt2.decrypt(by_split[2]).strip(b'9')			
+						f.write(decrypted_chunk)
 						tmp += 1
-						#print('INSIDE loop2')
+						print('.', end = '')
 				if tmp > 0:
-					print('File <' + filename + '> Received !!')
+					print('\nFile <' + filename + '> Received from User <' + str(by_split[3])[2:-1] + '> SUCCESSFULLY!!')
 			else:
 			#print('act_split: ', act_split)
 				if str(act_split[2])[2:-1] == 'GROUP':
@@ -195,7 +229,7 @@ while True:
 					tmp_var = 0
 					filepath = None
 					for i2 in range(0, len(all_x) - 1):
-						sleep(1)
+						#sleep(0.3)
 						server.send(bytes('SEND<SEPARATOR>' + all_uname[i2] + '<SEPARATOR>faltu3', 'utf-8'))
 						flag = server.recv(2048).decode()
 						
@@ -214,13 +248,53 @@ while True:
 										tmp_var += 1
 								server.send(bytes(str(tmp_var), 'utf-8'))
 								f = server.recv(2048).decode()
+								f_split = f.split('<SEPARATOR>')
+								x = int(f_split[0])
+								uname = f_split[1]
 								#print('itr:', tmp_var)
 								with open(filepath, "rb") as f:
 									while True:
 										bytes_read = f.read(BUFFER)
 										if not bytes_read:
 											break
-										server.sendall(bytes_read)
+
+										iv = Random.new().read(DES3.block_size)
+										
+										y = int(all_x[i2])
+										key1 = int(pow(y, a, P))
+										if key1 == 1:
+											key1 += 5
+										
+										temp = []
+										for i in range(16):
+											b = (key1 >> (i * 8)) & 0xFF
+											temp.append(b)
+										
+										temp2 = [chr(b) for b in temp]
+										key1_main = bytearray(b'')
+										for i in temp2:
+											key1_main.extend(bytes(i, 'utf-8'))
+
+										cipher_encrypt = DES3.new(bytes(key1_main), DES3.MODE_OFB, iv)
+										actual_bytes_read = pad_file_chunk(bytearray(bytes_read))
+										encrypted_chunk = cipher_encrypt.encrypt(bytes(actual_bytes_read))
+
+										#total = bytearray(b'')
+										total = bytearray(b'faltu<SEPARATOR>')
+										#print('iv:', iv)
+										total.extend(iv)
+										total.extend(b'<SEPARATOR>')
+										total.extend(encrypted_chunk)
+										total.extend(b'<SEPARATOR>')
+										total.extend(bytes(uname, 'utf-8'))
+										total.extend(b'<SEPARATOR>')
+										total.extend(bytes(str(x), 'utf-8'))
+										total.extend(b'<SEPARATOR>faltu')
+										server.sendall(total)			
+
+										#server.sendall(bytes_read)
+										ack = server.recv(2048).decode()
+										sleep(0.2)
 										#tmp_var += 1
 									#server.sendall(b'FALTU')
 							else:
@@ -229,24 +303,6 @@ while True:
 								f = server.recv(2048).decode()
 								exist_flag = 1
 								break
-
-
-							
-							'''filesize = os.path.getsize(filename)
-							server.send(f"{filename}{SEPARATOR}{filesize}".encode())
-							
-							tmp_var = 0
-							with open(filename, "rb") as f:
-								while True:
-									bytes_read = f.read(BUFFER)
-									if not bytes_read:
-										break
-									server.sendall(bytes_read)
-									tmp_var += 1
-							if tmp_var == 0:
-								print('Unable to send file !!')
-							else:
-								print('FILE SENT SUCCESSFULLY !!')'''
 							
 						else:
 							server.send(b'MSG')
@@ -291,6 +347,7 @@ while True:
 							#print(encrypted_text)
 							#print('total:', total)
 							server.send(total)
+						sleep(0.5)
 
 					if exist_flag == 1:
 						print('INVALID File name/path !!')
@@ -319,16 +376,56 @@ while True:
 									tmp_var += 1
 							server.send(bytes(str(tmp_var), 'utf-8'))
 							f = server.recv(2048).decode()
+							f_split = f.split('<SEPARATOR>')
+							x = int(f_split[0])
+							uname = f_split[1]
 							#print('itr:', tmp_var)
+							#print('x:', x)
+							#print('uname:', uname)
 							with open(filepath, "rb") as f:
 								while True:
 									bytes_read = f.read(BUFFER)
 									if not bytes_read:
 										break
-									server.sendall(bytes_read)
-									#tmp_var += 1
-								#server.sendall(b'FALTU')
-							#f_ack = server.recv(2048).decode()
+
+									iv = Random.new().read(DES3.block_size)
+									
+									y = int(chk_flg_s[1])
+									key1 = int(pow(y, a, P))
+									if key1 == 1:
+										key1 += 5
+									
+									temp = []
+									for i in range(16):
+										b = (key1 >> (i * 8)) & 0xFF
+										temp.append(b)
+									
+									temp2 = [chr(b) for b in temp]
+									key1_main = bytearray(b'')
+									for i in temp2:
+										key1_main.extend(bytes(i, 'utf-8'))
+
+									cipher_encrypt = DES3.new(bytes(key1_main), DES3.MODE_OFB, iv)
+									actual_bytes_read = pad_file_chunk(bytearray(bytes_read))
+									encrypted_chunk = cipher_encrypt.encrypt(bytes(actual_bytes_read))
+
+									#total = bytearray(b'')
+									total = bytearray(b'faltu<SEPARATOR>')
+									#print('iv:', iv)
+									total.extend(iv)
+									total.extend(b'<SEPARATOR>')
+									total.extend(encrypted_chunk)
+									total.extend(b'<SEPARATOR>')
+									total.extend(bytes(uname, 'utf-8'))
+									total.extend(b'<SEPARATOR>')
+									total.extend(bytes(str(x), 'utf-8'))
+									total.extend(b'<SEPARATOR>faltu')
+									server.sendall(total)			
+
+									#server.sendall(bytes_read)
+									ack = server.recv(2048).decode()
+									sleep(0.2)
+									
 							if tmp_var == 0:
 								print('Unable to send file !!')
 							else:

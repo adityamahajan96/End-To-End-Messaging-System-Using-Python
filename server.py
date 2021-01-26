@@ -27,6 +27,7 @@ user_list = []
 group_list = []
 
 BUFFER = 4096
+BUFFER2 = 4096 + 2048
 SEPARATOR = '<FALTU>'
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -244,7 +245,7 @@ def clientthread(conn, addr):
 							for usr in user_list:
 								if usr.username == usr_or_grp and usr != u:
 									itr = int(conn.recv(2048).decode())
-									conn.send(b'ACK')
+									conn.send(bytes(str(u.x) + '<SEPARATOR>' + u.username + '<SEPARATOR>faltu', 'utf-8'))
 									#print('itr:', itr)
 									#sleep(0.5)
 									#usr.conn.send(b'FILE')
@@ -255,12 +256,23 @@ def clientthread(conn, addr):
 									#f = usr.conn.recv(2048).decode()
 									usr.conn.send(bytes('FILE<SEPARATOR>' + msg_file[1] + '<SEPARATOR>' + str(itr) + '<SEPARATOR>faltu_again', 'utf-8'))
 									#f = usr.conn.recv(2048).decode()
-									sleep(0.2)
+									#sleep(0.2)
 									#for i in range(0, itr):
 									for i in range(0, itr):
-										bytes_read = conn.recv(BUFFER)
+										#bytes_read = conn.recv(BUFFER)
+										b = conn.recv(BUFFER2)
+										conn.send(b'ACK')
+										b_s = b.split(b'<SEPARATOR>')
+										#print('bs0:', b_s[0])
+										#print('iv:', b_s[1])
+										#b.extend(b'<SEPARATOR>')
+										#b.extend(bytes(u.username, 'utf-8'))
+										#b.extend(b'<SEPARATOR>')
+										#b.extend(bytes(str(u.x) + '<SEPARATOR>faltu', 'utf-8'))
 										#print('INSIDE loop')
-										usr.conn.sendall(bytes_read)
+										#print('b:', b)
+										usr.conn.sendall(b)
+										#sleep(0.8)
 										
 									#if itr > 0:
 									#	conn.send(b'ACK')
